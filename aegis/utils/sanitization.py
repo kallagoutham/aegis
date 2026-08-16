@@ -191,8 +191,7 @@ def redact_secrets(text: str) -> str:
         # key=value / key: value for sensitive-looking key names
         (
             re.compile(
-                r"\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)"
-                r"(\s*[=:]\s*)(\"?)([^\s\"',}]+)",
+                r"\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)" r"(\s*[=:]\s*)(\"?)([^\s\"',}]+)",
                 re.IGNORECASE,
             ),
             r"\1\2\3***",

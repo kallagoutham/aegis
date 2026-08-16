@@ -16,10 +16,10 @@ Conventions applied across every table:
 
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+import uuid
 
 from sqlalchemy import Column, DateTime, String, TypeDecorator, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -112,9 +112,7 @@ class EnumTextType(TypeDecorator[Enum]):
         self.enum_type = enum_type
         super().__init__(length=length)
 
-    def process_bind_param(
-        self, value: Enum | str | None, dialect: object
-    ) -> str | None:
+    def process_bind_param(self, value: Enum | str | None, dialect: object) -> str | None:
         """Convert enum members to their stable database value."""
         if value is None:
             return None

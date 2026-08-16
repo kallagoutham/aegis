@@ -93,10 +93,22 @@ def json_logs() -> str:
     return "\n".join(
         [
             '{"timestamp":"2026-08-15T10:20:01Z","level":"info","service":"payments","message":"deploy completed"}',
-            '{"timestamp":"2026-08-15T10:23:04Z","level":"error","service":"payments","message":"upstream connect timeout to gateway-7f3a"}',
-            '{"timestamp":"2026-08-15T10:23:05Z","level":"error","service":"payments","message":"upstream connect timeout to gateway-9c21"}',
-            '{"timestamp":"2026-08-15T10:23:06Z","level":"error","service":"payments","message":"upstream connect timeout to gateway-2b8e"}',
-            '{"timestamp":"2026-08-15T10:23:07Z","level":"warning","service":"checkout","message":"retrying payment authorisation"}',
+            (
+                '{"timestamp":"2026-08-15T10:23:04Z","level":"error","service":"payments",'
+                '"message":"upstream connect timeout to gateway-7f3a"}'
+            ),
+            (
+                '{"timestamp":"2026-08-15T10:23:05Z","level":"error","service":"payments",'
+                '"message":"upstream connect timeout to gateway-9c21"}'
+            ),
+            (
+                '{"timestamp":"2026-08-15T10:23:06Z","level":"error","service":"payments",'
+                '"message":"upstream connect timeout to gateway-2b8e"}'
+            ),
+            (
+                '{"timestamp":"2026-08-15T10:23:07Z","level":"warning","service":"checkout",'
+                '"message":"retrying payment authorisation"}'
+            ),
             '{"timestamp":"2026-08-15T10:24:00Z","level":"info","service":"checkout","message":"health check ok"}',
         ]
     )
