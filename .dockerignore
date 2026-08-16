@@ -1,0 +1,53 @@
+# Keep the build context small and free of secrets.
+#
+# Everything here is either irrelevant to the image or actively dangerous to
+# copy into it. A large context also slows every build, since Docker uploads it
+# to the daemon before the first instruction runs.
+
+# Secrets - must never enter an image layer.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Virtualenvs. The image builds its own; copying the host's would ship
+# platform-specific binaries that do not run in the container.
+.venv/
+venv/
+env/
+
+# Caches and artefacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Version control and CI
+.git/
+.github/
+.gitignore
+
+# Development-only material
+tests/
+docs/
+evals/
+data/
+logs/
+grafana/
+prometheus/
+docker-compose.yml
+Makefile
+# README.md is deliberately NOT ignored: pyproject declares it as the package
+# readme, so the build fails without it.
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store

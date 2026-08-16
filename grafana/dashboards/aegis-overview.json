@@ -1,0 +1,281 @@
+{
+  "uid": "aegis-overview",
+  "title": "Aegis - Service Overview",
+  "description": "Request health, LLM behaviour, retrieval quality, and agent outcomes.",
+  "tags": ["aegis", "overview"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Traffic and errors",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Request rate",
+      "description": "Requests per second across all routes.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        { "expr": "sum(rate(aegis_http_requests_total[5m]))", "legendFormat": "req/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "decimals": 2, "color": { "mode": "thresholds" } }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error rate",
+      "description": "Share of responses that are 5xx. Above 5% is a paging condition.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(rate(aegis_http_requests_total{status=\"5xx\"}[5m])) / clamp_min(sum(rate(aegis_http_requests_total[5m])), 0.001)",
+          "legendFormat": "5xx share"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "p95 latency",
+      "description": "95th percentile response time. The tail users actually feel.",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aegis_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "In flight",
+      "description": "Concurrent requests. Sustained growth means saturation.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "targets": [{ "expr": "sum(aegis_http_requests_in_flight)", "legendFormat": "in flight" }],
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests by route",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "sum by (route) (rate(aegis_http_requests_total[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency percentiles",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(aegis_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aegis_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(aegis_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "row",
+      "title": "Language model",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "LLM calls by outcome",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "targets": [
+        {
+          "expr": "sum by (model, outcome) (rate(aegis_llm_requests_total[5m]))",
+          "legendFormat": "{{model}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Time to first token",
+      "description": "How long a streaming user waits before seeing anything.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aegis_llm_time_to_first_token_seconds_bucket[5m])) by (le, model))",
+          "legendFormat": "{{model}} p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Token consumption",
+      "description": "Multiply by unit price to get spend.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "targets": [
+        {
+          "expr": "sum by (model, direction) (rate(aegis_llm_tokens_total[5m]))",
+          "legendFormat": "{{model}} {{direction}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "type": "row",
+      "title": "Retrieval",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Retrieval latency by stage",
+      "description": "embed, vector, lexical, fuse, rerank. Shows which stage is slow.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aegis_retrieval_duration_seconds_bucket[5m])) by (le, stage))",
+          "legendFormat": "{{stage}} p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Empty result rate",
+      "description": "Searches returning nothing. The agent still answers, but ungrounded.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(rate(aegis_retrieval_results_returned_bucket{le=\"0\"}[10m])) / clamp_min(sum(rate(aegis_retrieval_results_returned_count[10m])), 0.001)",
+          "legendFormat": "empty share"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.15 },
+              { "color": "red", "value": 0.3 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Top result relevance",
+      "description": "Fused score of the best hit. Downward drift means index staleness.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(aegis_retrieval_top_score_bucket[10m])) by (le))",
+          "legendFormat": "median top score"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "max": 1, "min": 0 } }
+    },
+    {
+      "type": "row",
+      "title": "Agent",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Investigations by outcome",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(aegis_agent_investigations_total[10m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Node latency",
+      "description": "triage, gather, investigate, tools, synthesize.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(aegis_agent_node_duration_seconds_bucket[5m])) by (le, node))",
+          "legendFormat": "{{node}} p95"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Reported confidence",
+      "description": "Median confidence in the leading hypothesis. Persistent lows mean poor grounding.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 33 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(aegis_agent_confidence_bucket[30m])) by (le))",
+          "legendFormat": "median confidence"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "max": 1, "min": 0 } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool calls by outcome",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 41 },
+      "targets": [
+        {
+          "expr": "sum by (tool, outcome) (rate(aegis_agent_tool_calls_total[5m]))",
+          "legendFormat": "{{tool}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    }
+  ]
+}

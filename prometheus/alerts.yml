@@ -1,0 +1,177 @@
+# Alerting rules for Aegis.
+#
+# Every rule alerts on a *symptom a user would notice*, not on a cause. Alerting
+# on causes ("CPU is high") produces pages nobody can act on; alerting on
+# symptoms ("investigations are failing") produces pages that always matter.
+#
+# Each alert carries a runbook_url annotation. An alert without a runbook is an
+# alert whose recipient has to reinvent the diagnosis at 03:00 - which is the
+# problem this whole product exists to solve, so it would be a poor look to
+# ship alerts without one.
+
+groups:
+  - name: aegis-availability
+    interval: 30s
+    rules:
+      - alert: AegisApiDown
+        expr: up{job="aegis-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Aegis API is not responding to scrapes"
+          description: "No successful scrape of {{ $labels.instance }} for 2 minutes."
+          runbook_url: "https://docs.aegis.dev/runbooks/api-down"
+
+      - alert: AegisHighErrorRate
+        # 5xx share of all responses. Threshold is deliberately above zero:
+        # paging on a single 500 trains people to ignore the alert.
+        expr: |
+          sum(rate(aegis_http_requests_total{status="5xx"}[5m]))
+            / clamp_min(sum(rate(aegis_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 5% of requests are failing"
+          description: "5xx rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+          runbook_url: "https://docs.aegis.dev/runbooks/high-error-rate"
+
+      - alert: AegisHighLatency
+        # p95 rather than mean: an average hides the tail that users feel.
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aegis_http_request_duration_seconds_bucket[5m])) by (le, route)
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency above 5s on {{ $labels.route }}"
+          description: "p95 is {{ $value | humanizeDuration }}."
+          runbook_url: "https://docs.aegis.dev/runbooks/high-latency"
+
+  - name: aegis-llm
+    interval: 30s
+    rules:
+      - alert: AegisLLMFailures
+        expr: |
+          sum(rate(aegis_llm_requests_total{outcome="error"}[5m]))
+            / clamp_min(sum(rate(aegis_llm_requests_total[5m])), 0.001) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 20% of LLM calls are failing"
+          description: "The provider may be degraded, or the API key may be invalid or out of quota."
+          runbook_url: "https://docs.aegis.dev/runbooks/llm-failures"
+
+      - alert: AegisModelFallbackActive
+        # Fallback working is good; fallback happening constantly means the
+        # primary model is effectively down and quality has silently changed.
+        expr: sum(rate(aegis_llm_fallback_total[15m])) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sustained failover away from the primary model"
+          description: "Responses are being served by a fallback model; quality and cost differ."
+          runbook_url: "https://docs.aegis.dev/runbooks/model-fallback"
+
+  - name: aegis-retrieval
+    interval: 30s
+    rules:
+      - alert: AegisRetrievalReturningNothing
+        # The most dangerous failure mode: the agent still answers, but with
+        # nothing to ground it, so it answers from parametric memory.
+        expr: |
+          sum(rate(aegis_retrieval_results_returned_bucket{le="0"}[10m]))
+            / clamp_min(sum(rate(aegis_retrieval_results_returned_count[10m])), 0.001) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Over 30% of searches return no results"
+          description: "Likely a knowledge base coverage gap, a failed re-index, or a wrong service filter."
+          runbook_url: "https://docs.aegis.dev/runbooks/empty-retrieval"
+
+      - alert: AegisEmbeddingFailures
+        expr: sum(rate(aegis_embedding_requests_total{outcome="error"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Embedding requests are failing"
+          description: "Ingestion and search will both degrade until this recovers."
+          runbook_url: "https://docs.aegis.dev/runbooks/embedding-failures"
+
+      - alert: AegisSlowRetrieval
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(aegis_retrieval_duration_seconds_bucket[5m])) by (le, stage)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Retrieval stage '{{ $labels.stage }}' p95 above 2s"
+          description: "Check HNSW index health and connection pool saturation."
+          runbook_url: "https://docs.aegis.dev/runbooks/slow-retrieval"
+
+  - name: aegis-agent
+    interval: 30s
+    rules:
+      - alert: AegisInvestigationsFailing
+        expr: |
+          sum(rate(aegis_agent_investigations_total{outcome="failed"}[15m]))
+            / clamp_min(sum(rate(aegis_agent_investigations_total[15m])), 0.001) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 10% of investigations are failing outright"
+          runbook_url: "https://docs.aegis.dev/runbooks/investigation-failures"
+
+      - alert: AegisInvestigationsTruncated
+        # Hitting the iteration cap means the agent ran out of budget before
+        # converging - the answer is real but incomplete.
+        expr: |
+          sum(rate(aegis_agent_investigations_total{outcome="truncated"}[30m]))
+            / clamp_min(sum(rate(aegis_agent_investigations_total[30m])), 0.001) > 0.25
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Over 25% of investigations hit the tool iteration cap"
+          description: "Consider raising AGENT_MAX_TOOL_ITERATIONS or improving retrieval quality."
+          runbook_url: "https://docs.aegis.dev/runbooks/truncated-investigations"
+
+  - name: aegis-infrastructure
+    interval: 30s
+    rules:
+      - alert: AegisDatabasePoolSaturated
+        expr: |
+          aegis_db_pool_connections{state="in_use"}
+            / clamp_min(
+                aegis_db_pool_connections{state="in_use"}
+                  + aegis_db_pool_connections{state="idle"},
+                1
+              ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool over 90% utilised"
+          description: "Requests will begin queueing. Raise POSTGRES_POOL_SIZE or investigate slow queries."
+          runbook_url: "https://docs.aegis.dev/runbooks/pool-saturation"
+
+      - alert: AegisUnembeddedChunks
+        # Not scraped as a metric; kept as a documented manual check.
+        expr: absent(aegis_app_info) == 1
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Aegis build info metric missing"
+          description: "The application may not have completed startup."
+          runbook_url: "https://docs.aegis.dev/runbooks/api-down"

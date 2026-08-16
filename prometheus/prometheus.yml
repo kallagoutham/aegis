@@ -1,0 +1,24 @@
+# Prometheus scrape configuration for the Aegis local stack.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: aegis
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: aegis-api
+    metrics_path: /metrics
+    # Aegis mounts /metrics as its own ASGI sub-application, so scrapes bypass
+    # the middleware stack and are neither logged nor rate limited.
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          component: api
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

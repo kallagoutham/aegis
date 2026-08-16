@@ -1,0 +1,210 @@
+[project]
+name = "aegis"
+version = "1.0.0"
+description = "Aegis - AI incident response platform with retrieval-grounded root cause analysis"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+keywords = ["incident-response", "sre", "rag", "langgraph", "fastapi", "observability"]
+
+dependencies = [
+    # --- Web framework -------------------------------------------------
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+    "slowapi>=0.1.9",
+
+    # --- Configuration and validation ----------------------------------
+    "pydantic[email]>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.2",
+
+    # --- Database ------------------------------------------------------
+    "sqlmodel>=0.0.22",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "psycopg[binary,pool]>=3.2.3",
+    "pgvector>=0.3.6",
+    "alembic>=1.14.0",
+
+    # --- LLM and agent orchestration -----------------------------------
+    "langchain-core>=0.3.29",
+    "langchain-openai>=0.3.0",
+    "langchain-community>=0.3.14",
+    "langgraph>=0.2.62",
+    "langgraph-checkpoint-postgres>=2.0.9",
+    "openai>=1.59.0",
+    "tiktoken>=0.8.0",
+    "mem0ai>=0.1.40",
+
+    # --- Auth ----------------------------------------------------------
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.2.1",
+
+    # --- Observability -------------------------------------------------
+    "structlog>=24.4.0",
+    "prometheus-client>=0.21.1",
+    "langfuse>=2.57.0",
+
+    # --- Utilities -----------------------------------------------------
+    "tenacity>=9.0.0",
+    "ddgs>=9.0.0",
+    "httpx>=0.28.1",
+    "tqdm>=4.67.1",
+    "colorama>=0.4.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.4",
+    "mypy>=1.14.0",
+    "types-pyyaml>=6.0.12",
+    "pre-commit>=4.0.1",
+]
+test = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "httpx>=0.28.1",
+    "faker>=33.1.0",
+]
+# uvloop is a meaningful throughput win but does not build on Windows, so it is
+# opt-in rather than a hard dependency.
+speedups = ["uvloop>=0.21.0; sys_platform != 'win32'"]
+
+[project.scripts]
+aegis = "aegis.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["aegis"]
+
+# ======================================================================
+# Testing
+# ======================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Auto mode means async tests need no per-test decorator.
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+markers = [
+    "slow: tests that take more than a second",
+    "integration: tests requiring a live PostgreSQL instance",
+    "llm: tests that call a real language model provider",
+]
+# Warnings are errors by default: a DeprecationWarning in our own code is a
+# bug we want to see now, not after an upgrade breaks. Third-party warnings we
+# cannot act on are ignored individually rather than by relaxing the policy.
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:pydantic.*",
+    "ignore::DeprecationWarning:langchain.*",
+    "ignore::PendingDeprecationWarning",
+    # slowapi calls asyncio.iscoroutinefunction, deprecated in Python 3.14.
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
+    # botocore/urllib3 and friends under newer Python.
+    "ignore:datetime.datetime.utcnow:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["aegis"]
+omit = ["*/migrations/*", "*/tests/*", "aegis/cli.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@overload",
+]
+
+# ======================================================================
+# Linting and formatting
+# ======================================================================
+[tool.ruff]
+line-length = 119
+target-version = "py312"
+exclude = ["migrations/versions", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear
+    "C4",   # comprehensions
+    "UP",   # pyupgrade
+    "D",    # docstrings
+    "ASYNC",# async correctness
+    "S",    # security (bandit)
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # line length is enforced by the formatter
+    "D203",   # conflicts with D211
+    "D213",   # conflicts with D212
+    "B008",   # FastAPI's Depends() in defaults is the documented idiom
+    "S101",   # assert is fine in tests
+    # UP042 wants `class X(StrEnum)` over `class X(str, Enum)`. Both are correct
+    # on 3.12+, but StrEnum changes what `str(X.MEMBER)` and f-string
+    # interpolation produce. These enums are persisted to the database and
+    # serialised through Pydantic, so the existing explicit `.value` access is
+    # deliberate and the rewrite would be a behavioural change for no gain.
+    "UP042",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]
+"tests/*" = ["D", "S105", "S106"]
+"evals/*" = ["D"]
+# S608 flags f-string SQL. In both modules the interpolated fragments are module
+# constants or clause strings assembled from literals; every user-supplied value
+# is a bound parameter. See the comments at each call site.
+"aegis/retrieval/vector_store.py" = ["S608"]
+"aegis/core/langgraph/graph.py" = ["S608"]
+# ASYNC240 flags blocking pathlib calls inside async functions. The CLI is a
+# single-shot process with no concurrent requests to stall, so offloading to a
+# thread would add machinery for no benefit. The API and pipeline paths, where
+# it does matter, use asyncio.to_thread.
+"aegis/cli.py" = ["ASYNC240"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["aegis"]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ======================================================================
+# Type checking
+# ======================================================================
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+exclude = ["migrations/", "tests/"]
+
+[[tool.mypy.overrides]]
+module = ["mem0.*", "langfuse.*", "slowapi.*", "pgvector.*"]
+ignore_missing_imports = true

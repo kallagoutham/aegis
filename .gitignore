@@ -1,0 +1,47 @@
+# Environment files. Only .env.example is committed - everything else holds
+# real credentials.
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.Python
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Runtime output
+logs/
+*.log
+evals/reports/
+
+# Ingested corpora. The bundled samples under data/runbooks and
+# data/postmortems are committed; anything a user drops in is not, since it is
+# usually internal documentation.
+data/**
+!data/runbooks/
+!data/runbooks/**
+!data/postmortems/
+!data/postmortems/**
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
