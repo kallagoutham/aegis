@@ -8,20 +8,20 @@ It is built around one conviction: **an incident response tool that can hallucin
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  "Checkout is throwing 503s. Here are 4,000 lines of logs."      │
+│  "Checkout is throwing 503s. Here are 4,000 lines of logs."     │
 └─────────────────────────────────────────────────────────────────┘
                                 │
      ┌──────────────────────────┴──────────────────────────┐
-     │  triage → gather → investigate ⇄ tools → synthesize  │
+     │  triage → gather → investigate ⇄ tools → synthesize │
      └──────────────────────────┬──────────────────────────┘
                                 │
 ┌─────────────────────────────────────────────────────────────────┐
-│  H1 (0.65) Connection pool exhausted after the 10:20 deploy      │
-│      Evidence: E1 (4,812 timeouts from 10:23), E3 (runbook §2)   │
-│      Rule out by: check cl_waiting; if <10 this isn't it         │
-│  H2 (0.20) Upstream gateway degradation                          │
-│  Immediate: enable queued auth to stop customer impact           │
-│  Open questions: no metrics available to confirm saturation      │
+│  H1 (0.65) Connection pool exhausted after the 10:20 deploy     │
+│      Evidence: E1 (4,812 timeouts from 10:23), E3 (runbook §2)  │
+│      Rule out by: check cl_waiting; if <10 this isn't it        │
+│  H2 (0.20) Upstream gateway degradation                         │
+│  Immediate: enable queued auth to stop customer impact          │
+│  Open questions: no metrics available to confirm saturation     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
