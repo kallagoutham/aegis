@@ -293,8 +293,7 @@ class VectorStore:
         # interpolated fragments are _PROJECTION (a module constant) and
         # filter_sql (assembled from fixed clause strings). Every user-
         # supplied value is a bound parameter.
-        statement = text(
-            f"""
+        statement = text(f"""
             SELECT {_PROJECTION},
                    1 - (c.embedding <=> CAST(:query_vector AS vector)) AS score
             FROM document_chunks c
@@ -302,8 +301,7 @@ class VectorStore:
             WHERE c.embedding IS NOT NULL{filter_sql}
             ORDER BY c.embedding <=> CAST(:query_vector AS vector)
             LIMIT :limit
-            """
-        )
+            """)
         params.update({"query_vector": serialise_vector(query_embedding), "limit": limit})
 
         started = time.perf_counter()
@@ -356,8 +354,7 @@ class VectorStore:
 
         # See the note in vector_search: only module constants and fixed
         # clause strings are interpolated; the query text is bound.
-        statement = text(
-            f"""
+        statement = text(f"""
             WITH q AS (SELECT websearch_to_tsquery(:ts_config, :query) AS query)
             SELECT {_PROJECTION},
                    ts_rank_cd(c.content_tsv, q.query) AS score
@@ -367,8 +364,7 @@ class VectorStore:
             WHERE c.content_tsv @@ q.query{filter_sql}
             ORDER BY score DESC
             LIMIT :limit
-            """
-        )
+            """)
         params.update({"query": query, "ts_config": TEXT_SEARCH_CONFIG, "limit": limit})
 
         started = time.perf_counter()
@@ -399,10 +395,7 @@ class VectorStore:
         Surfaces the number of chunks still missing an embedding, which is the
         clearest signal that an ingestion run failed partway through.
         """
-        row = (
-            await self.session.execute(
-                text(
-                    """
+        row = (await self.session.execute(text("""
                     SELECT
                         (SELECT count(*) FROM documents)                             AS documents,
                         (SELECT count(*) FROM document_chunks)                       AS chunks,
@@ -410,10 +403,7 @@ class VectorStore:
                           WHERE embedding IS NULL)                                   AS unembedded_chunks,
                         (SELECT count(DISTINCT service) FROM documents
                           WHERE service IS NOT NULL)                                 AS services
-                    """
-                )
-            )
-        ).one()
+                    """))).one()
 
         by_type = (
             await self.session.execute(

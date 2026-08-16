@@ -264,20 +264,14 @@ async def list_documented_services() -> str:
         from sqlalchemy import text as sql_text
 
         async with session_scope() as session:
-            rows = (
-                await session.execute(
-                    sql_text(
-                        """
+            rows = (await session.execute(sql_text("""
                         SELECT service, count(*) AS documents
                         FROM documents
                         WHERE service IS NOT NULL
                         GROUP BY service
                         ORDER BY documents DESC
                         LIMIT 100
-                        """
-                    )
-                )
-            ).all()
+                        """))).all()
 
         if not rows:
             return "No documents in the knowledge base are tagged with a service."

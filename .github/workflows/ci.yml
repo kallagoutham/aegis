@@ -41,8 +41,14 @@ jobs:
       - name: Ruff lint
         run: .venv/bin/ruff check aegis tests
 
-      - name: Ruff format check
-        run: .venv/bin/ruff format --check aegis tests
+      - name: Black format check
+        run: .venv/bin/black --check aegis tests
+
+      - name: isort import check
+        run: .venv/bin/isort --check-only aegis tests
+
+      - name: Flake8 lint
+        run: .venv/bin/flake8 aegis tests
 
       - name: Type check
         # Not yet blocking: the codebase is only partially annotated, and a

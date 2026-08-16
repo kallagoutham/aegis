@@ -142,12 +142,15 @@ test-integration: ## Run integration tests (requires PostgreSQL)
 .PHONY: lint
 lint: ## Check formatting and lint rules
 	.venv/bin/ruff check aegis tests
-	.venv/bin/ruff format --check aegis tests
+	.venv/bin/black --check aegis tests
+	.venv/bin/isort --check-only aegis tests
+	.venv/bin/flake8 aegis tests
 
 .PHONY: format
 format: ## Apply formatting and safe lint fixes
 	.venv/bin/ruff check --fix aegis tests
-	.venv/bin/ruff format aegis tests
+	.venv/bin/black aegis tests
+	.venv/bin/isort aegis tests
 
 .PHONY: typecheck
 typecheck: ## Run static type checking
@@ -224,3 +227,11 @@ clean: ## Remove caches and build artefacts
 	find . -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov .coverage dist build
 	@echo "Cleaned."
+
+# =====================================================================
+# Source Control
+# =====================================================================
+
+.PHONY : pull
+pull: ##git pull
+	git pull
