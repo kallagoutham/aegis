@@ -153,10 +153,18 @@ class TestErrorFormat:
         assert body["code"] == "validation_error"
         assert any(error["field"] == "password" for error in body["errors"])
 
-    def test_database_outage_is_a_retryable_503_not_a_500(self, client):
-        # No PostgreSQL is running in this suite, so any endpoint whose auth
-        # dependency reads the user row exercises the database error path.
+    def test_database_outage_is_a_retryable_503_not_a_500(self, client, monkeypatch):
+        # Exercise the same path a real database outage takes during auth
+        # resolution, without relying on CI's ambient PostgreSQL state.
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from aegis.services.database import UserRepository
         from aegis.utils.auth import create_user_token
+
+        async def unavailable_database(*args, **kwargs):
+            raise SQLAlchemyError("database unavailable")
+
+        monkeypatch.setattr(UserRepository, "get_user", unavailable_database)
 
         token = create_user_token(uuid.uuid4())
         response = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token.access_token}"})
