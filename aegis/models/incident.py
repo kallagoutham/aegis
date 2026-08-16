@@ -39,6 +39,7 @@ from sqlmodel import (
 
 from aegis.models.base import (
     AegisTable,
+    EnumTextType,
     empty_dict,
     jsonb_column,
 )
@@ -103,8 +104,18 @@ class Incident(AegisTable, table=True):
 
     title: str = Field(sa_column=Column(String(500), nullable=False))
     description: str = Field(default="", sa_column=Column(Text, nullable=False, server_default=""))
-    severity: Severity = Field(default=Severity.SEV3, index=True, nullable=False)
-    status: IncidentStatus = Field(default=IncidentStatus.OPEN, index=True, nullable=False)
+    severity: Severity = Field(
+        default=Severity.SEV3,
+        sa_column=Column(EnumTextType(Severity, length=10), nullable=False, server_default=Severity.SEV3.value),
+    )
+    status: IncidentStatus = Field(
+        default=IncidentStatus.OPEN,
+        sa_column=Column(
+            EnumTextType(IncidentStatus, length=20),
+            nullable=False,
+            server_default=IncidentStatus.OPEN.value,
+        ),
+    )
 
     service: str | None = Field(default=None, index=True, max_length=200, description="Primary affected service.")
     affected_services: list[str] = Field(
