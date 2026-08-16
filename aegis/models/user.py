@@ -22,6 +22,7 @@ from sqlmodel import (
 from aegis.core.config import settings
 from aegis.models.base import (
     AegisTable,
+    EnumTextType,
     empty_dict,
     jsonb_column,
 )
@@ -79,7 +80,11 @@ class User(AegisTable, table=True):
         description="bcrypt digest. Never the plaintext.",
     )
     full_name: str = Field(default="", max_length=200, description="Display name.")
-    role: UserRole = Field(default=UserRole.RESPONDER, index=True, description="Permission tier.")
+    role: UserRole = Field(
+        default=UserRole.RESPONDER,
+        sa_column=Column(EnumTextType(UserRole, length=20), nullable=False, server_default=UserRole.RESPONDER.value),
+        description="Permission tier.",
+    )
     is_active: bool = Field(default=True, index=True, description="Soft-disable flag; blocks login without deleting.")
     preferences: dict[str, Any] = Field(
         default_factory=empty_dict,

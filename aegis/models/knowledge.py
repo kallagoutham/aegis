@@ -44,6 +44,7 @@ from sqlmodel import (
 from aegis.core.config import settings
 from aegis.models.base import (
     AegisTable,
+    EnumTextType,
     empty_dict,
     jsonb_column,
 )
@@ -99,7 +100,10 @@ class Document(AegisTable, table=True):
     )
 
     title: str = Field(sa_column=Column(String(500), nullable=False), description="Human-readable document title.")
-    source_type: SourceType = Field(default=SourceType.OTHER, index=True, nullable=False)
+    source_type: SourceType = Field(
+        default=SourceType.OTHER,
+        sa_column=Column(EnumTextType(SourceType, length=30), nullable=False, server_default=SourceType.OTHER.value),
+    )
     source_uri: str = Field(
         sa_column=Column(String(1024), nullable=False, index=True),
         description="Where this came from: file path, Confluence URL, S3 key.",
@@ -114,7 +118,14 @@ class Document(AegisTable, table=True):
         max_length=200,
         description="Service this document describes. The highest-signal retrieval filter.",
     )
-    status: IngestionStatus = Field(default=IngestionStatus.PENDING, index=True, nullable=False)
+    status: IngestionStatus = Field(
+        default=IngestionStatus.PENDING,
+        sa_column=Column(
+            EnumTextType(IngestionStatus, length=20),
+            nullable=False,
+            server_default=IngestionStatus.PENDING.value,
+        ),
+    )
     error: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     chunk_count: int = Field(default=0, ge=0)
     token_count: int = Field(default=0, ge=0, description="Total tokens across all chunks; drives cost reporting.")
@@ -203,7 +214,10 @@ class DocumentChunk(AegisTable, table=True):
     )
 
     # Denormalised from the parent document so retrieval can filter without a join.
-    source_type: SourceType = Field(default=SourceType.OTHER, index=True, nullable=False)
+    source_type: SourceType = Field(
+        default=SourceType.OTHER,
+        sa_column=Column(EnumTextType(SourceType, length=30), nullable=False, server_default=SourceType.OTHER.value),
+    )
     service: str | None = Field(default=None, index=True, max_length=200)
 
     chunk_metadata: dict[str, Any] = Field(

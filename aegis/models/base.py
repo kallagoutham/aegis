@@ -16,23 +16,14 @@ Conventions applied across every table:
 
 from __future__ import annotations
 
-from datetime import (
-    UTC,
-    datetime,
-)
-from typing import Any
 import uuid
+from datetime import UTC, datetime
+from enum import Enum
+from typing import Any
 
-from sqlalchemy import (
-    Column,
-    DateTime,
-    func,
-)
+from sqlalchemy import Column, DateTime, String, TypeDecorator, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import (
-    Field,
-    SQLModel,
-)
+from sqlmodel import Field, SQLModel
 
 
 def utcnow() -> datetime:
@@ -105,6 +96,46 @@ class AegisTable(UUIDPrimaryKeyMixin, TimestampMixin, SQLModel):
     """
 
 
+class EnumTextType(TypeDecorator[Enum]):
+    """Persist a Python enum as text.
+
+    The initial migration stores enum-like fields as ``varchar`` columns. This
+    type keeps the Python API enum-shaped without asking Postgres for native
+    enum types that the schema does not create.
+    """
+
+    impl = String
+    cache_ok = True
+
+    def __init__(self, enum_type: type[Enum], *, length: int = 50) -> None:
+        """Bind the decorator to one enum class."""
+        self.enum_type = enum_type
+        super().__init__(length=length)
+
+    def process_bind_param(
+        self, value: Enum | str | None, dialect: object
+    ) -> str | None:
+        """Convert enum members to their stable database value."""
+        if value is None:
+            return None
+        if isinstance(value, self.enum_type):
+            return str(value.value)
+        text = str(value)
+        try:
+            return str(self.enum_type(text).value)
+        except ValueError:
+            return str(self.enum_type[text].value)
+
+    def process_result_value(self, value: str | None, dialect: object) -> Enum | None:
+        """Restore stored text as an enum member."""
+        if value is None:
+            return None
+        try:
+            return self.enum_type(value)
+        except ValueError:
+            return self.enum_type[value]
+
+
 def jsonb_column(nullable: bool = False) -> Column:
     """Build a JSONB column that defaults to an empty object.
 
@@ -131,6 +162,7 @@ def empty_dict() -> dict[str, Any]:
 
 __all__ = [
     "AegisTable",
+    "EnumTextType",
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
     "empty_dict",
